@@ -1,104 +1,160 @@
-# CBNetV2: A Novel Composite Backbone Network Architecture for Object Detection
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/cbnetv2-a-composite-backbone-network/object-detection-on-coco)](https://paperswithcode.com/sota/object-detection-on-coco?p=cbnetv2-a-composite-backbone-network)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/cbnetv2-a-composite-backbone-network/instance-segmentation-on-coco)](https://paperswithcode.com/sota/instance-segmentation-on-coco?p=cbnetv2-a-composite-backbone-network)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/cbnetv2-a-composite-backbone-network/object-detection-on-coco-minival)](https://paperswithcode.com/sota/object-detection-on-coco-minival?p=cbnetv2-a-composite-backbone-network)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/cbnetv2-a-composite-backbone-network/instance-segmentation-on-coco-minival)](https://paperswithcode.com/sota/instance-segmentation-on-coco-minival?p=cbnetv2-a-composite-backbone-network)
+# AI-CUP Competition: STAS Detection
 
-By [Tingting Liang](https://github.com/tingtingliangvs)\*, [Xiaojie Chu](https://github.com/chuxiaojie)\*, [Yudong Liu](https://github.com/PKUbahuangliuhe)\*, Yongtao Wang, Zhi Tang, Wei Chu, Jingdong Chen, Haibin Ling.
-
-This repo is the official implementation of [CBNetV2](http://arxiv.org/abs/2107.00420). It is based on [mmdetection](https://github.com/open-mmlab/mmdetection) and [Swin Transformer for Object Detection](https://github.com/SwinTransformer/Swin-Transformer-Object-Detection).
-
-Contact us with tingtingliang@pku.edu.cn, chuxiaojie@stu.pku.edu.cn, wyt@pku.edu.cn.
-## Introduction
-*CBNetV2* achieves strong single-model performance on COCO object detection (`60.1 box AP` and `52.3 mask AP` on test-dev) without extra training data.
-
-![teaser](figures/cbnetv2.png)
-
-
-## Partial Results and Models
-**More results and models can be found in [model zoo](model_zoo.md)**
-
-### Faster R-CNN 
-| Backbone | Lr Schd | box mAP (minival) |  #params | FLOPs | config | log | model |
-| :---: |  :---: | :---: | :---: | :---: | :---: | :---: | :---: | 
-| DB-ResNet50 | 1x |  40.8 | 69M | 284G | [config](configs/cbnet/faster_rcnn_cbv2d1_r50_fpn_1x_coco.py) | [github](https://github.com/CBNetwork/storage/releases/download/v1.0.0/faster_rcnn_cbv2d1_r50_fpn_1x_coco.log.json)| [github](https://github.com/CBNetwork/storage/releases/download/v1.0.0/faster_rcnn_cbv2d1_r50_fpn_1x_coco.pth.zip)| 
-
-
-### Mask R-CNN
-
-| Backbone | Lr Schd | box mAP (minival) | mask mAP (minival) | #params | FLOPs | config | log | model |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | 
-| DB-Swin-T | 3x | 50.2 | 44.5 | 76M | 357G | [config](configs/cbnet/mask_rcnn_cbv2_swin_tiny_patch4_window7_mstrain_480-800_adamw_3x_coco.py) | [github](https://github.com/CBNetwork/storage/releases/download/v1.0.0/mask_rcnn_cbv2_swin_tiny_patch4_window7_mstrain_480-800_adamw_3x_coco.log.json)  | [github](https://github.com/CBNetwork/storage/releases/download/v1.0.0/mask_rcnn_cbv2_swin_tiny_patch4_window7_mstrain_480-800_adamw_3x_coco.pth.zip) |
-
-### Cascade Mask R-CNN (1600x1400)
-| Backbone | Lr Schd | box mAP (minival/test-dev)| mask mAP (minival/test-dev)| #params | FLOPs | config | model |
-| :---: | :---: |  :---: | :---: | :---: | :---: | :---: | :---: |
-| DB-Swin-S |  3x | 56.3/56.9 | 48.6/49.1 | 156M | 1016G | [config](configs/cbnet/cascade_mask_rcnn_cbv2_swin_small_patch4_window7_mstrain_400-1400_adamw_3x_coco.py) | [github](https://github.com/CBNetwork/storage/releases/download/v1.0.0/cascade_mask_rcnn_cbv2_swin_small_patch4_window7_mstrain_400-1400_adamw_3x_coco.pth.zip)| 
-
-### Improved HTC (1600x1400)
-*We use ImageNet-22k pretrained checkpoints of Swin-B and Swin-L. Compared to regular HTC, our HTC uses 4conv1fc in bbox head.*
-| Backbone | Lr Schd | box mAP (minival/test-dev) | mask mAP (minival/test-dev) | #params | FLOPs | config | model |
-| :---: |:---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| DB-Swin-B | 20e | 58.4/58.7 | 50.7/51.1 | 235M | 1348G | [config](configs/cbnet/htc_cbv2_swin_base_patch4_window7_mstrain_400-1400_giou_4conv1f_adamw_20e_coco.py) | [github](https://github.com/CBNetwork/storage/releases/download/v1.0.0/htc_cbv2_swin_base22k_patch4_window7_mstrain_400-1400_giou_4conv1f_adamw_20e_coco.pth.zip) |
-| DB-Swin-L | 1x | 59.1/59.4 | 51.0/51.6 | 453M | 2162G | [config (test only)](configs/cbnet/htc_cbv2_swin_large_patch4_window7_mstrain_400-1400_giou_4conv1f_adamw_1x_coco.py) | [github](https://github.com/CBNetwork/storage/releases/download/v1.0.0/htc_cbv2_swin_large22k_patch4_window7_mstrain_400-1400_giou_4conv1f_adamw_1x_coco.pth.zip) |
-| DB-Swin-L (TTA) |  1x | 59.6/60.1 | 51.8/52.3 | 453M | - | [config (test only)](configs/cbnet/htc_cbv2_swin_large_patch4_window7_mstrain_400-1400_giou_4conv1f_adamw_1x_coco.py) | [github](https://github.com/CBNetwork/storage/releases/download/v1.0.0/htc_cbv2_swin_large22k_patch4_window7_mstrain_400-1400_giou_4conv1f_adamw_1x_coco.pth.zip) |
-
-TTA denotes test time augmentation.
-
-**Notes**: 
-
-- **Pre-trained models of Swin Transformer can be downloaded from [Swin Transformer for ImageNet Classification](https://github.com/microsoft/Swin-Transformer)**.
-
-## Usage
-
-### Installation
-
-Please refer to [get_started.md](https://github.com/open-mmlab/mmdetection/blob/master/docs/en/get_started.md) for installation and dataset preparation.
-
-### Inference
-```
-# single-gpu testing (w/o segm result)
-python tools/test.py <CONFIG_FILE> <DET_CHECKPOINT_FILE> --eval bbox 
-
-# multi-gpu testing (w/ segm result)
-tools/dist_test.sh <CONFIG_FILE> <DET_CHECKPOINT_FILE> <GPU_NUM> --eval bbox segm
+## Environment Setup
+Device: single 2080ti with CUDA 10.2 and python3.8
+```bash
+pip install torch==1.10.1+cu102 torchvision==0.11.2+cu102 torchaudio==0.10.1 -f https://download.pytorch.org/whl/torch_stable.html
+python setup.py install
+# python setup.py develop
+pip install mmcv-full==1.4.0 -f https://download.openmmlab.com/mmcv/dist/cu102/torch1.10.0/index.html
 ```
 
-### Training
-
-To train a detector with pre-trained models, run:
-```
-# multi-gpu training
-tools/dist_train.sh <CONFIG_FILE> <GPU_NUM> 
-```
-For example, to train a Faster R-CNN model with a `Duel-ResNet50` backbone and 8 gpus, run:
-```
-# path of pre-training model (resnet50) is already in config
-tools/dist_train.sh configs/cbnet/faster_rcnn_cbv2d1_r50_fpn_1x_coco.py 8 
-```
-
-Another  example, to train a Mask R-CNN model with a `Duel-Swin-T` backbone and 8 gpus, run:
-```
-tools/dist_train.sh configs/cbnet/mask_rcnn_cbv2_swin_tiny_patch4_window7_mstrain_480-800_adamw_3x_coco.py 8 --cfg-options model.pretrained=<PRETRAIN_MODEL> 
-```
-
-
-
-### Apex (optional):
+### Apex Installation:
 Following [Swin Transformer for Object Detection](https://github.com/SwinTransformer/Swin-Transformer-Object-Detection), we use apex for mixed precision training by default. To install apex, run:
-```
+```bash
 git clone https://github.com/NVIDIA/apex
 cd apex
 pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 ```
 
-### Documents and Tutorials
-*We list some documents and tutorials from [MMDetection](https://github.com/open-mmlab/mmdetection), which may be helpful to you.*
-* [Learn about Configs](https://github.com/open-mmlab/mmdetection/blob/master/docs/tutorials/config.md)
-* [Train with customized datasets](https://github.com/open-mmlab/mmdetection/blob/master/docs/2_new_data_model.md)
-* [Finetuning Models](https://github.com/open-mmlab/mmdetection/blob/master/docs/tutorials/finetune.md)
+### Fix Apex's Bug:
+goto your environment folder (eg. venv)   
+modify venv/lib/python3.8/site-packages/apex/amp/utils.py line 97
+```python 
+-   if cached_x.grad_fn.next_functions[1][0].variable is not x:       
++   if cached_x.grad_fn.next_functions[0][0].variable is not x:
+        raise RuntimeError("x and cache[x] both require grad, but x is not "
+                                   "cache[x]'s parent.  This is likely an error.")
+```
 
 
+## STAS Detection Model and Config
+put pretrained pth model in **ckpt** folder (AI-CUP/ckpt)   
+>[origin pretrained model](https://github.com/CBNetwork/storage/releases/download/v1.0.0/htc_cbv2_swin_base22k_patch4_window7_mstrain_400-1400_giou_4conv1f_adamw_20e_coco.pth.zip)   
+>[origin config](https://github.com/VDIGPKU/CBNetV2/blob/main/configs/cbnet/htc_cbv2_swin_base_patch4_window7_mstrain_400-1400_giou_4conv1f_adamw_20e_coco.py)     
+   
+unzip competition models and configs folder and name it **work_dirs** (AI-CUP/work_dirs)  
+>[competition models](https://www.dropbox.com/s/xb5g1pyq6fp1vvj/work_dirs.zip?dl=0)    
+>[competition segmentation config](https://github.com/jason2714/AI-CUP/blob/main/configs/cbnet/swin_coco.py)    
+>[competition detection config](https://github.com/jason2714/AI-CUP/blob/main/configs/cbnet/swin_custom_fine.py)    
+
+## Preprocess STAS Data and Annotations
+put data and annotations in **data** folder (AI-CUP/data)    
+annotations contain detection and segmentation
+```
+data
+`-- OBJ_Train_Datasets
+    |-- Test_Images
+    |   `-- test_images...
+    |-- Train_Annotations
+    |   |-- json_segmentation_annotations...
+    |   `-- xml_detection_annotations...
+    `-- Train_Images
+        `-- train_images...
+```
+
+then run **python convert_STAS.py**    
+**coco** and **custom** folder should appear in the directory
+```
+data
+`-- OBJ_Train_Datasets
+    |-- same_with_above...
+    |-- coco
+    |   |-- STAS_final.json
+    |   |-- STAS_test.json
+    |   |-- STAS_train.json
+    |   `-- STAS_val.json
+    `-- custom
+        |-- STAS_final.pkl
+        |-- STAS_test.pkl
+        |-- STAS_train.pkl
+        `-- STAS_val.pkl
+```
+### COCO Format For Segmentation Annotations (json)
+
+```python
+'images': [
+    {
+        'file_name': '00000395.jpg',
+        'height': 942,
+        'width': 1716,
+        'id': 00000395
+    },
+    ...
+],
+
+'annotations': [
+    {
+        'segmentation': [[192.81,
+            247.09,
+            ...
+            219.03,
+            249.06]],
+        'area': 1035.749,
+        'iscrowd': 0,
+        'image_id': 00000395,
+        'bbox': [192.81, 224.8, 74.73, 33.43],
+        'category_id': 0,
+        'id': 5555
+    },
+    ...
+],
+
+'categories': [
+    {'id': 0, 'name': 'stas'},
+ ]
+```
+
+### Middle Format For Detection Annotations (pickle)
+```python
+
+[
+    {
+        'filename': '00000395.jpg',
+        'width': 1716,
+        'height': 942,
+        'ann': {
+            'bboxes': <np.ndarray, float32> (n, 4),
+            'labels': <np.ndarray, int64> (n, )
+        }
+    },
+    ...
+]
+```
+
+## STAS Detection Train
+**Please only use a single GPU for train**     
+```bash
+# First, train on the semantic segmentation annotations
+# The original pretrained model must be placed in the ckpt folder first
+python -m torch.distributed.launch tools/train.py 
+    configs/cbnet/swin_coco.py
+    --gpus 1 --deterministic --seed 123  
+    --work-dir work_dirs/swin_coco
+    
+# Second, use the model trained from segmentation fintune on the object detection annotations
+# You need to complete the previous training or download the competition model
+python -m torch.distributed.launch tools/train.py 
+    configs/cbnet/swin_custom_fine.py 
+    --gpus 1 --deterministic --seed 123  
+    --work-dir work_dirs/swin_custom_fine
+```
+
+## STAS Detection Evaluate
+**Please only use a single GPU for inference**    
+
+```bash
+# You need to complete all previous training or download the competition model
+python tools/test.py 
+    work_dirs/swin_custom_fine/swin_custom_fine.py 
+    work_dirs/swin_custom_fine/latest.pth 
+    --out result.json 
+    --show --show-dir ckpt
+```
+
+## Other Links
+> **Original CBNet**: See [CBNet: A Novel Composite Backbone Network Architecture for Object Detection](https://github.com/VDIGPKU/CBNet).    
+> **Origin CBNetV2 Github**: See [VDIGPKU CBNetV2](https://github.com/VDIGPKU/CBNetV2)
 ## Citation
 If you use our code/model, please consider to cite our paper [CBNetV2: A Novel Composite Backbone Network Architecture for Object Detection](http://arxiv.org/abs/2107.00420).
 ```
@@ -108,27 +164,4 @@ If you use our code/model, please consider to cite our paper [CBNetV2: A Novel C
   journal={arXiv preprint arXiv:2107.00420},
   year={2021}
 }
-```
-
-## License
-The project is only free for academic research purposes, but needs authorization for commerce. For commerce permission, please contact wyt@pku.edu.cn.
-
-
-## Other Links
-> **Original CBNet**: See [CBNet: A Novel Composite Backbone Network Architecture for Object Detection](https://github.com/VDIGPKU/CBNet).
-
-## STAS
-```
-for CUDA 10.2 2080ti
-pip install torch==1.10.1+cu102 torchvision==0.11.2+cu102 torchaudio==0.10.1 -f https://download.pytorch.org/whl/torch_stable.html
-python setup.py build
-python setup.py install
-python setup.py develop
-pip install mmcv-full==1.4.0 -f https://download.openmmlab.com/mmcv/dist/cu102/torch1.10.0/index.html
-git clone https://github.com/NVIDIA/apex
-cd apex
-pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
-pip install -U albumentations
-pip install shapely
-runner 改為epoch
 ```

@@ -1,10 +1,53 @@
-_base_ = 'htc_cbv2_swin_base_patch4_window7_mstrain_400-1400_adamw_20e_coco.py'
-dataset_type = 'CustomDataset'
-
-data_root = 'data/OBJ_Train_Datasets/'
-
 model = dict(
+    type='HybridTaskCascade',
+    pretrained=None,
+    backbone=dict(
+        type='CBSwinTransformer',
+        embed_dim=128,
+        depths=[2, 2, 18, 2],
+        num_heads=[4, 8, 16, 32],
+        window_size=7,
+        mlp_ratio=4.0,
+        qkv_bias=True,
+        qk_scale=None,
+        drop_rate=0.0,
+        attn_drop_rate=0.0,
+        drop_path_rate=0.3,
+        ape=False,
+        patch_norm=True,
+        out_indices=(0, 1, 2, 3),
+        use_checkpoint=False),
+    neck=dict(
+        type='CBFPN',
+        in_channels=[128, 256, 512, 1024],
+        out_channels=256,
+        num_outs=5),
+    rpn_head=dict(
+        type='RPNHead',
+        in_channels=256,
+        feat_channels=256,
+        anchor_generator=dict(
+            type='AnchorGenerator',
+            scales=[4],
+            ratios=[0.78, 0.92, 1.0, 1.2, 1.41],
+            strides=[4, 8, 16, 32, 64]),
+        bbox_coder=dict(
+            type='DeltaXYWHBBoxCoder',
+            target_means=[0.0, 0.0, 0.0, 0.0],
+            target_stds=[1.0, 1.0, 1.0, 1.0]),
+        loss_bbox=dict(
+            type='SmoothL1Loss', beta=0.1111111111111111, loss_weight=1.0)),
     roi_head=dict(
+        type='HybridTaskCascadeRoIHead',
+        interleaved=True,
+        mask_info_flow=True,
+        num_stages=3,
+        stage_loss_weights=[1, 0.5, 0.25],
+        bbox_roi_extractor=dict(
+            type='SingleRoIExtractor',
+            roi_layer=dict(type='RoIAlign', output_size=7, sampling_ratio=0),
+            out_channels=256,
+            featmap_strides=[4, 8, 16, 32]),
         bbox_head=[
             dict(
                 type='ConvFCBBoxHead',
@@ -17,14 +60,12 @@ model = dict(
                 num_classes=1,
                 bbox_coder=dict(
                     type='DeltaXYWHBBoxCoder',
-                    target_means=[0., 0., 0., 0.],
+                    target_means=[0.0, 0.0, 0.0, 0.0],
                     target_stds=[0.1, 0.1, 0.2, 0.2]),
                 reg_class_agnostic=True,
                 reg_decoded_bbox=True,
                 norm_cfg=dict(type='SyncBN', requires_grad=True),
-                # loss_cls=dict(
-                #     type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
-                loss_bbox=dict(type='GIoULoss', loss_weight=10.0)),
+                loss_bbox=dict(type='CIoULoss', loss_weight=10.0)),
             dict(
                 type='ConvFCBBoxHead',
                 num_shared_convs=4,
@@ -36,14 +77,12 @@ model = dict(
                 num_classes=1,
                 bbox_coder=dict(
                     type='DeltaXYWHBBoxCoder',
-                    target_means=[0., 0., 0., 0.],
+                    target_means=[0.0, 0.0, 0.0, 0.0],
                     target_stds=[0.05, 0.05, 0.1, 0.1]),
                 reg_class_agnostic=True,
                 reg_decoded_bbox=True,
                 norm_cfg=dict(type='SyncBN', requires_grad=True),
-                # loss_cls=dict(
-                #     type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
-                loss_bbox=dict(type='GIoULoss', loss_weight=10.0)),
+                loss_bbox=dict(type='CIoULoss', loss_weight=10.0)),
             dict(
                 type='ConvFCBBoxHead',
                 num_shared_convs=4,
@@ -55,59 +94,130 @@ model = dict(
                 num_classes=1,
                 bbox_coder=dict(
                     type='DeltaXYWHBBoxCoder',
-                    target_means=[0., 0., 0., 0.],
+                    target_means=[0.0, 0.0, 0.0, 0.0],
                     target_stds=[0.033, 0.033, 0.067, 0.067]),
                 reg_class_agnostic=True,
                 reg_decoded_bbox=True,
                 norm_cfg=dict(type='SyncBN', requires_grad=True),
-                # loss_cls=dict(
-                #     type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
-                loss_bbox=dict(type='GIoULoss', loss_weight=10.0))
-        ]
-    )
-)
-
-
+                loss_bbox=dict(type='CIoULoss', loss_weight=10.0))
+        ]),
+    train_cfg=dict(
+        rpn=dict(
+            assigner=dict(
+                type='MaxIoUAssigner',
+                pos_iou_thr=0.7,
+                neg_iou_thr=0.3,
+                min_pos_iou=0.3,
+                ignore_iof_thr=-1),
+            sampler=dict(
+                type='RandomSampler',
+                num=256,
+                pos_fraction=0.5,
+                neg_pos_ub=-1,
+                add_gt_as_proposals=False),
+            allowed_border=0,
+            pos_weight=-1,
+            debug=False),
+        rpn_proposal=dict(
+            nms_pre=2000,
+            max_per_img=2000,
+            nms=dict(type='nms', iou_threshold=0.7),
+            min_bbox_size=0),
+        rcnn=[
+            dict(
+                assigner=dict(
+                    type='MaxIoUAssigner',
+                    pos_iou_thr=0.5,
+                    neg_iou_thr=0.5,
+                    min_pos_iou=0.5,
+                    ignore_iof_thr=-1),
+                sampler=dict(
+                    type='OHEMSampler',
+                    num=512,
+                    pos_fraction=0.25,
+                    neg_pos_ub=-1,
+                    add_gt_as_proposals=True),
+                mask_size=28,
+                pos_weight=-1,
+                debug=False),
+            dict(
+                assigner=dict(
+                    type='MaxIoUAssigner',
+                    pos_iou_thr=0.6,
+                    neg_iou_thr=0.6,
+                    min_pos_iou=0.6,
+                    ignore_iof_thr=-1),
+                sampler=dict(
+                    type='OHEMSampler',
+                    num=512,
+                    pos_fraction=0.25,
+                    neg_pos_ub=-1,
+                    add_gt_as_proposals=True),
+                mask_size=28,
+                pos_weight=-1,
+                debug=False),
+            dict(
+                assigner=dict(
+                    type='MaxIoUAssigner',
+                    pos_iou_thr=0.7,
+                    neg_iou_thr=0.7,
+                    min_pos_iou=0.7,
+                    ignore_iof_thr=-1),
+                sampler=dict(
+                    type='OHEMSampler',
+                    num=512,
+                    pos_fraction=0.25,
+                    neg_pos_ub=-1,
+                    add_gt_as_proposals=True),
+                mask_size=28,
+                pos_weight=-1,
+                debug=False)
+        ]),
+    test_cfg=dict(
+        rpn=dict(
+            nms_pre=1000,
+            max_per_img=1000,
+            nms=dict(type='soft_nms', iou_threshold=0.7),
+            min_bbox_size=0),
+        rcnn=dict(
+            score_thr=0.05,
+            nms=dict(type='soft_nms', iou_threshold=0.5),
+            max_per_img=200,
+            mask_thr_binary=0.5)))
+optimizer = dict(
+    type='AdamW',
+    lr=1e-05,
+    betas=(0.9, 0.999),
+    weight_decay=0.05,
+    paramwise_cfg=dict(
+        custom_keys=dict(
+            absolute_pos_embed=dict(decay_mult=0.0),
+            relative_position_bias_table=dict(decay_mult=0.0),
+            norm=dict(decay_mult=0.0))))
+optimizer_config = dict(
+    grad_clip=None,
+    type='DistOptimizerHook',
+    update_interval=1,
+    coalesce=True,
+    bucket_size_mb=-1,
+    use_fp16=True)
+checkpoint_config = dict(interval=1)
+log_config = dict(interval=50, hooks=[dict(type='TextLoggerHook')])
+custom_hooks = [dict(type='NumClassCheckHook')]
+dist_params = dict(backend='nccl')
+log_level = 'INFO'
+load_from = 'work_dirs/swin_coco/epoch_8.pth'
+resume_from = None
+workflow = [('train', 1)]
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
-
-# 1600 1400
-# image_size = (1716, 942)
-# first version
-# mutli_scale_image_size = [(850, 471), (850, 500), (900, 500), (900, 520)]
-# new_image_size = (1000, 565)
-# new_image_size = (1200, 660)
-# second version
-# mutli_scale_image_size = [(850, 471), (850, 500), (900, 500), (900, 520)]
-# new_image_size = (1716, 942)
-# third version
-# mutli_scale_image_size = [(686, 376), (686, 420), (850, 471), (850, 500), (900, 500), (900, 520)]
-# test_mutli_scale_image_size = [(858, 471), (943, 518), (1000, 565), (1115, 612), (1200, 660)]
-# new_image_size = (1000, 565)
-# fourth version
-# mutli_scale_image_size = [(429, 235), (950, 520)]
-# test_mutli_scale_image_size = [(686, 376), (858, 471), (1000, 565), (1200, 660)]
-# fifth version
+fp16 = None
+dataset_type = 'CustomDataset'
+data_root = 'data/OBJ_Train_Datasets/'
 mutli_scale_image_size = [(686, 376), (950, 520)]
-test_mutli_scale_image_size = [(858, 471), (943, 518), (1000, 565), (1115, 612), (1200, 660)]
-# (1000, 565)
-# [(1600, 1000), (1600, 1400), (1800, 1200), (1800, 1600)]
-
+test_mutli_scale_image_size = [(858, 471), (943, 518), (1000, 565),
+                               (1115, 612), (1200, 660)]
 albu_train_transforms = [
-    # dict(
-    #     type='HorizontalFlip',
-    #     p=0.2),
-    # dict(
-    #     type='VerticalFlip',
-    #     p=0.2),
-
-    # dict(
-    #     type='ShiftScaleRotate',
-    #     shift_limit=0.0625,
-    #     scale_limit=0.0,
-    #     rotate_limit=45,
-    #     interpolation=1,
-    #     p=0.2),
     dict(
         type='RandomBrightnessContrast',
         brightness_limit=[0.1, 0.3],
@@ -128,84 +238,50 @@ albu_train_transforms = [
                 sat_shift_limit=30,
                 val_shift_limit=20,
                 p=1.0),
-            dict(type='FancyPCA', alpha=0.1, always_apply=False, p=1.0), #trick
+            dict(type='FancyPCA', alpha=0.1, always_apply=False, p=1.0)
         ],
-        p=0.1),
-    # dict(type='JpegCompression', quality_lower=85, quality_upper=95, p=0.2),
-    #
-    # dict(type='ChannelShuffle', p=0.1),
-    # dict(type='RandomRotate90', always_apply=False, p=0.5), # 随机旋转
-    # dict(
-    #     type='OneOf',
-    #     transforms=[
-    #         dict(type='Blur', blur_limit=3, p=1.0),
-    #         dict(type='MedianBlur', blur_limit=3, p=1.0),
-    #         dict(type='MotionBlur', blur_limit=6, always_apply=False, p=1.0)#trick
-    #     ],
-    #     p=0.1),
+        p=0.1)
 ]
-
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True),
     dict(
         type='Resize',
-        img_scale=mutli_scale_image_size,
+        img_scale=[(686, 376), (950, 520)],
         multiscale_mode='range',
         keep_ratio=True),
     dict(type='RandomFlip', flip_ratio=0.5),
-    # dict(
-    #     type='Albu',
-    #     transforms=albu_train_transforms,
-    #     bbox_params=dict(
-    #         type='BboxParams',
-    #         format='pascal_voc',
-    #         label_fields=['gt_labels'],
-    #         min_visibility=0.0,
-    #         filter_lost_elements=True),
-    #     keymap={
-    #         'img': 'image',
-    #         'gt_bboxes': 'bboxes'
-    #     },
-    #     update_pad_shape=False,
-    #     skip_img_without_anno=True),
-    dict(type='Normalize', **img_norm_cfg),
+    dict(
+        type='Normalize',
+        mean=[123.675, 116.28, 103.53],
+        std=[58.395, 57.12, 57.375],
+        to_rgb=True),
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
-    dict(
-        type='Collect',
-        keys=['img', 'gt_bboxes', 'gt_labels']),
+    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'])
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=test_mutli_scale_image_size,
+        img_scale=[(858, 471), (943, 518), (1000, 565), (1115, 612),
+                   (1200, 660)],
         flip=True,
         transforms=[
             dict(type='Resize', keep_ratio=True),
             dict(type='RandomFlip'),
-            dict(type='Normalize', **img_norm_cfg),
+            dict(
+                type='Normalize',
+                mean=[123.675, 116.28, 103.53],
+                std=[58.395, 57.12, 57.375],
+                to_rgb=True),
             dict(type='Pad', size_divisor=32),
             dict(type='ImageToTensor', keys=['img']),
-            dict(type='Collect', keys=['img']),
+            dict(type='Collect', keys=['img'])
         ])
 ]
-
-# runner = dict(type='EpochBasedRunnerAmp', max_epochs=12)
-# lr_config = dict(
-#     policy='CosineAnnealing',
-#     warmup='linear',
-#     warmup_iters=500,
-#     warmup_ratio=0.001,
-#     min_lr_ratio=1e-4,
-# )
-samples_per_gpu=1
-workers_per_gpu=1
-optimizer = dict(_delete_=True, type='AdamW', lr=2e-5*(samples_per_gpu/2), betas=(0.9, 0.999), weight_decay=0.05,
-                 paramwise_cfg=dict(custom_keys={'absolute_pos_embed': dict(decay_mult=0.),
-                                                 'relative_position_bias_table': dict(decay_mult=0.),
-                                                 'norm': dict(decay_mult=0.)}))
+samples_per_gpu = 1
+workers_per_gpu = 1
 runner = dict(type='EpochBasedRunnerAmp', max_epochs=6)
 lr_config = dict(
     policy='step',
@@ -213,34 +289,80 @@ lr_config = dict(
     warmup_iters=500,
     warmup_ratio=0.001,
     step=[3, 5])
-
-classes = ('stas',)
-workflow = [('train', 1), ('val', 1)]
+classes = ('stas', )
 data = dict(
-    samples_per_gpu=samples_per_gpu,
-    workers_per_gpu=workers_per_gpu,
+    samples_per_gpu=1,
+    workers_per_gpu=1,
     train=dict(
-        type=dataset_type,
-        classes=classes,
-        ann_file=data_root + 'custom/STAS_train.pkl',
-        pipeline=train_pipeline),
+        type='CustomDataset',
+        classes=('stas', ),
+        ann_file='data/OBJ_Train_Datasets/custom/STAS_final.pkl',
+        pipeline=[
+            dict(type='LoadImageFromFile'),
+            dict(type='LoadAnnotations', with_bbox=True),
+            dict(
+                type='Resize',
+                img_scale=[(686, 376), (950, 520)],
+                multiscale_mode='range',
+                keep_ratio=True),
+            dict(type='RandomFlip', flip_ratio=0.5),
+            dict(
+                type='Normalize',
+                mean=[123.675, 116.28, 103.53],
+                std=[58.395, 57.12, 57.375],
+                to_rgb=True),
+            dict(type='Pad', size_divisor=32),
+            dict(type='DefaultFormatBundle'),
+            dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'])
+        ]),
     val=dict(
-        type=dataset_type,
-        classes=classes,
-        ann_file=data_root + 'custom/STAS_val.pkl',
-        pipeline=test_pipeline),
+        type='CustomDataset',
+        classes=('stas', ),
+        ann_file='data/OBJ_Train_Datasets/custom/STAS_val.pkl',
+        pipeline=[
+            dict(type='LoadImageFromFile'),
+            dict(
+                type='MultiScaleFlipAug',
+                img_scale=[(858, 471), (943, 518), (1000, 565), (1115, 612),
+                           (1200, 660)],
+                flip=True,
+                transforms=[
+                    dict(type='Resize', keep_ratio=True),
+                    dict(type='RandomFlip'),
+                    dict(
+                        type='Normalize',
+                        mean=[123.675, 116.28, 103.53],
+                        std=[58.395, 57.12, 57.375],
+                        to_rgb=True),
+                    dict(type='Pad', size_divisor=32),
+                    dict(type='ImageToTensor', keys=['img']),
+                    dict(type='Collect', keys=['img'])
+                ])
+        ]),
     test=dict(
-        type=dataset_type,
-        classes=classes,
-        ann_file=data_root + 'custom/STAS_test.pkl',
-        pipeline=test_pipeline))
-
+        type='CustomDataset',
+        classes=('stas', ),
+        ann_file='data/OBJ_Train_Datasets/custom/STAS_test.pkl',
+        pipeline=[
+            dict(type='LoadImageFromFile'),
+            dict(
+                type='MultiScaleFlipAug',
+                img_scale=[(858, 471), (943, 518), (1000, 565), (1115, 612),
+                           (1200, 660)],
+                flip=True,
+                transforms=[
+                    dict(type='Resize', keep_ratio=True),
+                    dict(type='RandomFlip'),
+                    dict(
+                        type='Normalize',
+                        mean=[123.675, 116.28, 103.53],
+                        std=[58.395, 57.12, 57.375],
+                        to_rgb=True),
+                    dict(type='Pad', size_divisor=32),
+                    dict(type='ImageToTensor', keys=['img']),
+                    dict(type='Collect', keys=['img'])
+                ])
+        ]))
 evaluation = dict(metric=['mAP'])
-
-load_from = 'work_dirs/swin_coco_v4/epoch_8.pth'
-# CUDA_VISIBLE_DEVICES=3 python -m torch.distributed.launch tools/train.py configs/cbnet/swin_custom.py --gpus 1 --deterministic --seed 123  --work-dir work_dirs/swin_custom_v13-1
-# CUDA_VISIBLE_DEVICES=2 python -m torch.distributed.launch --master_port 29501 tools/train.py configs/cbnet/swin_custom.py --gpus 1 --deterministic --seed 123  --work-dir work_dirs/swin_custom_v13-2
-# CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch --master_port 29502 tools/train.py configs/cbnet/swin_custom.py --gpus 1 --deterministic --seed 123  --work-dir work_dirs/swin_custom_v10-2
-# CUDA_VISIBLE_DEVICES=2,3 tools/dist_train.sh configs/cbnet/swin_custom.py 2
-# CUDA_VISIBLE_DEVICES=3 python tools/test.py configs/cbnet/swin_custom_fine.py work_dirs/swin_custom_v14-2/latest.pth --out result.json --show --show-dir ckpt
-# CUDA_VISIBLE_DEVICES=3 python tools/test.py configs/cbnet/swin_custom.py work_dirs/swin_custom_v5/latest.pth --eval mAP
+work_dir = 'work_dirs/swin_custom_fine'
+gpu_ids = range(0, 1)

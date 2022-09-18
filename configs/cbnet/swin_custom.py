@@ -24,7 +24,9 @@ model = dict(
                 norm_cfg=dict(type='SyncBN', requires_grad=True),
                 # loss_cls=dict(
                 #     type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
-                loss_bbox=dict(type='CIoULoss', loss_weight=10.0)),
+                loss_bbox=dict(type='CIoULoss', loss_weight=10.0)
+                # loss_bbox=dict(type='FocalCIoULoss', loss_weight=10.0, gamma=0.5)
+            ),
             dict(
                 type='ConvFCBBoxHead',
                 num_shared_convs=4,
@@ -43,7 +45,10 @@ model = dict(
                 norm_cfg=dict(type='SyncBN', requires_grad=True),
                 # loss_cls=dict(
                 #     type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
-                loss_bbox=dict(type='CIoULoss', loss_weight=10.0)),
+                loss_bbox=dict(type='CIoULoss', loss_weight=10.0)
+                # loss_bbox=dict(type='FocalCIoULoss', loss_weight=10.0, gamma=0.5)
+            ),
+
             dict(
                 type='ConvFCBBoxHead',
                 num_shared_convs=4,
@@ -62,7 +67,9 @@ model = dict(
                 norm_cfg=dict(type='SyncBN', requires_grad=True),
                 # loss_cls=dict(
                 #     type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
-                loss_bbox=dict(type='CIoULoss', loss_weight=10.0))
+                loss_bbox=dict(type='CIoULoss', loss_weight=10.0)
+                # loss_bbox=dict(type='FocalCIoULoss', loss_weight=10.0, gamma=0.5)
+            )
         ]
     )
 )
@@ -72,7 +79,7 @@ img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 
 # 1600 1400
-# image_size = (1716, 942)
+origin_image_size = (942, 1716)
 # first version
 # mutli_scale_image_size = [(850, 471), (850, 500), (900, 500), (900, 520)]
 # new_image_size = (1000, 565)
@@ -88,8 +95,8 @@ img_norm_cfg = dict(
 # mutli_scale_image_size = [(429, 235), (950, 520)]
 # test_mutli_scale_image_size = [(686, 376), (858, 471), (1000, 565), (1200, 660)]
 # fifth version
-mutli_scale_image_size = [(686, 376), (950, 520)]
-test_mutli_scale_image_size = [(858, 471), (943, 518), (1000, 565), (1115, 612), (1200, 660)]
+mutli_scale_image_size = [(376, 686), (520, 950)]
+test_mutli_scale_image_size = [(471, 858), (518, 943), (565, 1000), (612, 1115), (660, 1200)]
 # (1000, 565)
 # [(1600, 1000), (1600, 1400), (1800, 1200), (1800, 1600)]
 
@@ -145,37 +152,37 @@ albu_train_transforms = [
         p=0.1),
 ]
 
-train_pipeline = [
-    dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations', with_bbox=True),
-    dict(
-        type='Resize',
-        img_scale=mutli_scale_image_size,
-        multiscale_mode='range',
-        keep_ratio=True),
-    dict(type='RandomFlip', flip_ratio=0.5),
-    dict(
-        type='Albu',
-        transforms=albu_train_transforms,
-        bbox_params=dict(
-            type='BboxParams',
-            format='pascal_voc',
-            label_fields=['gt_labels'],
-            min_visibility=0.0,
-            filter_lost_elements=True),
-        keymap={
-            'img': 'image',
-            'gt_bboxes': 'bboxes'
-        },
-        update_pad_shape=False,
-        skip_img_without_anno=True),
-    dict(type='Normalize', **img_norm_cfg),
-    dict(type='Pad', size_divisor=32),
-    dict(type='DefaultFormatBundle'),
-    dict(
-        type='Collect',
-        keys=['img', 'gt_bboxes', 'gt_labels']),
-]
+# train_pipeline = [
+#     dict(type='LoadImageFromFile'),
+#     dict(type='LoadAnnotations', with_bbox=True),
+#     dict(
+#         type='Resize',
+#         img_scale=mutli_scale_image_size,
+#         multiscale_mode='range',
+#         keep_ratio=True),
+#     dict(type='RandomFlip', flip_ratio=0.5),
+#     dict(
+#         type='Albu',
+#         transforms=albu_train_transforms,
+#         bbox_params=dict(
+#             type='BboxParams',
+#             format='pascal_voc',
+#             label_fields=['gt_labels'],
+#             min_visibility=0.0,
+#             filter_lost_elements=True),
+#         keymap={
+#             'img': 'image',
+#             'gt_bboxes': 'bboxes'
+#         },
+#         update_pad_shape=False,
+#         skip_img_without_anno=True),
+#     dict(type='Normalize', **img_norm_cfg),
+#     dict(type='Pad', size_divisor=32),
+#     dict(type='DefaultFormatBundle'),
+#     dict(
+#         type='Collect',
+#         keys=['img', 'gt_bboxes', 'gt_labels']),
+# ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
@@ -206,7 +213,14 @@ optimizer = dict(_delete_=True, type='AdamW', lr=1e-4*(samples_per_gpu/2), betas
                  paramwise_cfg=dict(custom_keys={'absolute_pos_embed': dict(decay_mult=0.),
                                                  'relative_position_bias_table': dict(decay_mult=0.),
                                                  'norm': dict(decay_mult=0.)}))
-runner = dict(type='EpochBasedRunnerAmp', max_epochs=12)
+# runner = dict(type='EpochBasedRunnerAmp', max_epochs=12)
+# lr_config = dict(
+#     policy='step',
+#     warmup='linear',
+#     warmup_iters=500,
+#     warmup_ratio=0.001,
+#     step=[6, 10])
+runner = dict(type='EpochBasedRunnerAmp', max_epochs=50)
 lr_config = dict(
     policy='step',
     warmup='linear',
@@ -215,15 +229,75 @@ lr_config = dict(
     step=[6, 10])
 
 classes = ('stas',)
-workflow = [('train', 1), ('val', 1)]
+# workflow = [('train', 1), ('val', 1)]
+workflow = [('train', 1)]
+train_pipeline = [
+    # dict(
+    #     type='MinIoURandomCrop',
+    #     min_ious=(0.5, 0.7, 0.9),
+    #     min_crop_size=0.3),
+    # yolox
+    dict(type='Mosaic', img_scale=origin_image_size, pad_val=114.0, prob=0.2),
+    # dict(
+    #     type='RandomAffine',
+    #     scaling_ratio_range=(0.5, 1.5),
+    #     border=(-origin_image_size[0] // 2, -origin_image_size[1] // 2)),
+    dict(
+        type='MixUp',
+        img_scale=origin_image_size,
+        ratio_range=(0.8, 1.6),
+        pad_val=114.0, prob=0.2),
+    # yolox
+    dict(
+        type='Resize',
+        img_scale=mutli_scale_image_size,
+        multiscale_mode='range',
+        keep_ratio=True),
+    dict(type='RandomFlip', flip_ratio=0.5),
+    dict(
+        type='Albu',
+        transforms=albu_train_transforms,
+        bbox_params=dict(
+            type='BboxParams',
+            format='pascal_voc',
+            label_fields=['gt_labels'],
+            min_visibility=0.0,
+            filter_lost_elements=True),
+        keymap={
+            'img': 'image',
+            'gt_bboxes': 'bboxes'
+        },
+        update_pad_shape=False,
+        skip_img_without_anno=True),
+    dict(type='Normalize', **img_norm_cfg),
+    dict(type='Pad', size_divisor=32),
+    dict(type='DefaultFormatBundle'),
+    dict(
+        type='Collect',
+        keys=['img', 'gt_bboxes', 'gt_labels']),
+]
+train_dataset = dict(
+    type='MultiImageMixDataset',
+    dataset=dict(
+        type=dataset_type,
+        classes=classes,
+        ann_file=data_root + 'custom/STAS_final.pkl',
+        pipeline=[
+            dict(type='LoadImageFromFile'),
+            dict(type='LoadAnnotations', with_bbox=True)
+        ],
+        filter_empty_gt=False,
+    ),
+    pipeline=train_pipeline)
 data = dict(
     samples_per_gpu=samples_per_gpu,
     workers_per_gpu=workers_per_gpu,
-    train=dict(
-        type=dataset_type,
-        classes=classes,
-        ann_file=data_root + 'custom/STAS_train.pkl',
-        pipeline=train_pipeline),
+    train=train_dataset,
+    # train=dict(
+    #     type=dataset_type,
+    #     classes=classes,
+    #     ann_file=data_root + 'custom/STAS_train.pkl',
+    #     pipeline=train_pipeline),
     val=dict(
         type=dataset_type,
         classes=classes,
@@ -238,9 +312,9 @@ data = dict(
 evaluation = dict(metric=['mAP'])
 
 load_from = 'ckpt/htc_cbv2_swin_base22k_patch4_window7_mstrain_400-1400_giou_4conv1f_adamw_20e_coco.pth'
-# CUDA_VISIBLE_DEVICES=3 python -m torch.distributed.launch tools/train.py configs/cbnet/swin_custom.py --gpus 1 --deterministic --seed 123  --work-dir work_dirs/swin_custom_v13-1
-# CUDA_VISIBLE_DEVICES=2 python -m torch.distributed.launch --master_port 29501 tools/train.py configs/cbnet/swin_custom.py --gpus 1 --deterministic --seed 123  --work-dir work_dirs/swin_custom_v13-2
+# CUDA_VISIBLE_DEVICES=3 python -m torch.distributed.launch --master_port 29501 tools/train.py configs/cbnet/swin_custom.py --gpus 1 --deterministic --seed 123  --work-dir work_dirs/swin_custom_v14-9
+# CUDA_VISIBLE_DEVICES=2 python -m torch.distributed.launch --master_port 29501 tools/train.py configs/cbnet/swin_custom.py --gpus 1 --deterministic --seed 123  --work-dir work_dirs/swin_custom_v14-10
 # CUDA_VISIBLE_DEVICES=1 python -m torch.distributed.launch --master_port 29502 tools/train.py configs/cbnet/swin_custom.py --gpus 1 --deterministic --seed 123  --work-dir work_dirs/swin_custom_v10-2
 # CUDA_VISIBLE_DEVICES=2,3 tools/dist_train.sh configs/cbnet/swin_custom.py 2
-# CUDA_VISIBLE_DEVICES=3 python tools/test.py configs/cbnet/swin_custom.py work_dirs/swin_custom_v5/latest.pth --out result.json --show --show-dir ckpt
-# CUDA_VISIBLE_DEVICES=3 python tools/test.py configs/cbnet/swin_custom.py work_dirs/swin_custom_v5/latest.pth --eval mAP
+# CUDA_VISIBLE_DEVICES=3 python tools/test.py configs/cbnet/swin_custom.py work_dirs/swin_custom_v14-6/latest.pth --out result.json --show --show-dir ckpt
+# CUDA_VISIBLE_DEVICES=3 python tools/test.py configs/cbnet/swin_custom.py work_dirs/swin_custom_v14-8/latest.pth --eval mAP

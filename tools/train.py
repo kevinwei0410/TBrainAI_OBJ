@@ -162,7 +162,6 @@ def main():
         test_cfg=cfg.get('test_cfg'))
     model.init_weights()
     # print(model)
-
     datasets = [build_dataset(cfg.data.train)]
     print('=' * 100)
     print(datasets)

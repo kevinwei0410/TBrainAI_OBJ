@@ -15,6 +15,26 @@ from mmdet.core import encode_mask_results
 from PIL import Image
 from pathlib import Path
 import numpy as np
+from ensemble_boxes import weighted_boxes_fusion
+
+
+def WBF(predictions, iou_thr=0.55, width=1716, height=942):
+    # print(predictions)
+    bbox_list = (predictions[:, :-1] / [width, height, width, height])[np.newaxis, :]
+
+    scores_list = predictions[:, -1:].reshape((1, -1))
+    # print(bbox_list.shape)
+    # print(scores_list.shape)
+    labels_list = np.zeros_like(scores_list)
+    boxes, scores, labels = weighted_boxes_fusion(bbox_list, scores_list, labels_list, weights=None,
+                                                  iou_thr=iou_thr, skip_box_thr=0.0)
+    assert len(boxes) == len(scores)
+    boxes = boxes * [width, height, width, height]
+    result = np.concatenate((boxes, scores[:, np.newaxis]), axis=1)
+    # print(len(predictions))
+    # print(len(result))
+    return result
+
 
 
 def transform_result(result):
@@ -43,6 +63,10 @@ def single_gpu_test(model,
         with torch.no_grad():
             result = model(return_loss=False, rescale=True, **data)
         batch_size = len(result)
+        # WBF
+        # for j in range(batch_size):
+        #     result[j][0] = WBF(result[j][0].copy())
+        # WBF
         if show or out_dir:
             if batch_size == 1 and isinstance(data['img'][0], torch.Tensor):
                 img_tensor = data['img'][0]
@@ -51,7 +75,6 @@ def single_gpu_test(model,
             img_metas = data['img_metas'][0].data[0]
             imgs = tensor2imgs(img_tensor, **img_metas[0]['img_norm_cfg'])
             assert len(imgs) == len(img_metas)
-
             for i, (img, img_meta) in enumerate(zip(imgs, img_metas)):
                 # # TODO transform result block
                 if eval_metric is None:

@@ -29,7 +29,6 @@ model = dict(
         anchor_generator=dict(
             type='AnchorGenerator',
             scales=[4],
-            # ratios=[0.6, 1.0, 1.25, 1.6],
             ratios=[0.78, 0.92, 1.0, 1.2, 1.41],
             strides=[4, 8, 16, 32, 64]),
         bbox_coder=dict(
@@ -133,23 +132,7 @@ model = dict(
                 num_classes=1,
                 loss_mask=dict(
                     type='CrossEntropyLoss', use_mask=True, loss_weight=1.0))
-        ],
-        # semantic_roi_extractor=dict(
-        #     type='SingleRoIExtractor',
-        #     roi_layer=dict(type='RoIAlign', output_size=14, sampling_ratio=0),
-        #     out_channels=256,
-        #     featmap_strides=[8]),
-        # semantic_head=dict(
-        #     type='FusedSemanticHead',
-        #     num_ins=5,
-        #     fusion_level=1,
-        #     num_convs=4,
-        #     in_channels=256,
-        #     conv_out_channels=256,
-        #     num_classes=1,
-        #     ignore_label=1,
-        #     loss_weight=0.2)
-    ),
+        ]),
     train_cfg=dict(
         rpn=dict(
             assigner=dict(
@@ -257,7 +240,7 @@ dist_params = dict(backend='nccl')
 log_level = 'INFO'
 load_from = 'ckpt/htc_cbv2_swin_base22k_patch4_window7_mstrain_400-1400_giou_4conv1f_adamw_20e_coco.pth'
 resume_from = None
-workflow = [('train', 1), ('val', 1)]
+workflow = [('train', 1)]
 img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 fp16 = None
@@ -305,91 +288,122 @@ lr_config = dict(
     step=[7, 11])
 samples_per_gpu = 1
 workers_per_gpu = 1
-classes = ('stas',)
-# mutli_scale_image_size = (772, 423)
-# test_mutli_scale_image_size = [(858, 471)]
+classes = ('stas', )
 mutli_scale_image_size = [(686, 376), (772, 423)]
 test_mutli_scale_image_size = [(772, 423), (858, 471), (943, 518)]
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
-    # dict(type='LoadAnnotations', with_bbox=True, with_mask=True, with_seg=True),
     dict(
         type='Resize',
-        img_scale=mutli_scale_image_size,
+        img_scale=[(686, 376), (772, 423)],
         multiscale_mode='range',
         keep_ratio=True),
-    # dict(type='MixUp', p=0.5, lambd=0.5),
     dict(type='RandomFlip', flip_ratio=0.5),
-    # dict(
-    #     type='Albu',
-    #     transforms=albu_train_transforms,
-    #     bbox_params=dict(
-    #         type='BboxParams',
-    #         format='pascal_voc',
-    #         label_fields=['gt_labels'],
-    #         min_visibility=0.0,
-    #         filter_lost_elements=True),
-    #     keymap={
-    #         'img': 'image',
-    #         'gt_bboxes': 'bboxes'
-    #     },
-    #     update_pad_shape=False,
-    #     skip_img_without_anno=True),
-    dict(type='Normalize', **img_norm_cfg),
-    dict(type='Pad', size_divisor=32),
-    # dict(type='SegRescale', scale_factor=1 / 8),
-    dict(type='DefaultFormatBundle'),
     dict(
-        type='Collect',
-        keys=['img', 'gt_bboxes', 'gt_labels', 'gt_masks']),
-#       keys=['img', 'gt_bboxes', 'gt_labels', 'gt_masks', 'gt_semantic_seg']),
+        type='Normalize',
+        mean=[123.675, 116.28, 103.53],
+        std=[58.395, 57.12, 57.375],
+        to_rgb=True),
+    dict(type='Pad', size_divisor=32),
+    dict(type='DefaultFormatBundle'),
+    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels', 'gt_masks'])
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=test_mutli_scale_image_size,
+        img_scale=[(772, 423), (858, 471), (943, 518)],
         flip=True,
         transforms=[
             dict(type='Resize', keep_ratio=True),
             dict(type='RandomFlip'),
-            dict(type='Normalize', **img_norm_cfg),
+            dict(
+                type='Normalize',
+                mean=[123.675, 116.28, 103.53],
+                std=[58.395, 57.12, 57.375],
+                to_rgb=True),
             dict(type='Pad', size_divisor=32),
             dict(type='ImageToTensor', keys=['img']),
-            dict(type='Collect', keys=['img']),
+            dict(type='Collect', keys=['img'])
         ])
 ]
 data = dict(
-    samples_per_gpu=samples_per_gpu,
-    workers_per_gpu=workers_per_gpu,
+    samples_per_gpu=1,
+    workers_per_gpu=1,
     train=dict(
-        type=dataset_type,
-        classes=classes,
-        ann_file=data_root + 'coco/STAS_train.json',
-        img_prefix=data_root + 'Train_Images/',
-        pipeline=train_pipeline),
+        type='CocoDataset',
+        classes=('stas', ),
+        ann_file='data/OBJ_Train_Datasets/coco/STAS_train.json',
+        img_prefix='data/OBJ_Train_Datasets/Train_Images/',
+        pipeline=[
+            dict(type='LoadImageFromFile'),
+            dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
+            dict(
+                type='Resize',
+                img_scale=[(686, 376), (772, 423)],
+                multiscale_mode='range',
+                keep_ratio=True),
+            dict(type='RandomFlip', flip_ratio=0.5),
+            dict(
+                type='Normalize',
+                mean=[123.675, 116.28, 103.53],
+                std=[58.395, 57.12, 57.375],
+                to_rgb=True),
+            dict(type='Pad', size_divisor=32),
+            dict(type='DefaultFormatBundle'),
+            dict(
+                type='Collect',
+                keys=['img', 'gt_bboxes', 'gt_labels', 'gt_masks'])
+        ]),
     val=dict(
-        type=dataset_type,
-        classes=classes,
-        ann_file=data_root + 'coco/STAS_val.json',
-        img_prefix=data_root + 'Train_Images/',
-        pipeline=test_pipeline),
+        type='CocoDataset',
+        classes=('stas', ),
+        ann_file='data/OBJ_Train_Datasets/coco/STAS_val.json',
+        img_prefix='data/OBJ_Train_Datasets/Train_Images/',
+        pipeline=[
+            dict(type='LoadImageFromFile'),
+            dict(
+                type='MultiScaleFlipAug',
+                img_scale=[(772, 423), (858, 471), (943, 518)],
+                flip=True,
+                transforms=[
+                    dict(type='Resize', keep_ratio=True),
+                    dict(type='RandomFlip'),
+                    dict(
+                        type='Normalize',
+                        mean=[123.675, 116.28, 103.53],
+                        std=[58.395, 57.12, 57.375],
+                        to_rgb=True),
+                    dict(type='Pad', size_divisor=32),
+                    dict(type='ImageToTensor', keys=['img']),
+                    dict(type='Collect', keys=['img'])
+                ])
+        ]),
     test=dict(
-        type=dataset_type,
-        classes=classes,
-        ann_file=data_root + 'coco/STAS_test.json',
-        img_prefix=data_root + 'Test_Images/',
-        pipeline=test_pipeline)
-    # test = dict(
-    #     type=dataset_type,
-    #     classes=classes,
-    #     ann_file=data_root + 'coco/STAS_test.json',
-    #     img_prefix=data_root + 'Test_Images',
-    #     pipeline=test_pipeline)
-    )
+        type='CocoDataset',
+        classes=('stas', ),
+        ann_file='data/OBJ_Train_Datasets/coco/STAS_test.json',
+        img_prefix='data/OBJ_Train_Datasets/Test_Images/',
+        pipeline=[
+            dict(type='LoadImageFromFile'),
+            dict(
+                type='MultiScaleFlipAug',
+                img_scale=[(772, 423), (858, 471), (943, 518)],
+                flip=True,
+                transforms=[
+                    dict(type='Resize', keep_ratio=True),
+                    dict(type='RandomFlip'),
+                    dict(
+                        type='Normalize',
+                        mean=[123.675, 116.28, 103.53],
+                        std=[58.395, 57.12, 57.375],
+                        to_rgb=True),
+                    dict(type='Pad', size_divisor=32),
+                    dict(type='ImageToTensor', keys=['img']),
+                    dict(type='Collect', keys=['img'])
+                ])
+        ]))
 evaluation = dict(metric=['bbox', 'segm'])
-# CUDA_VISIBLE_DEVICES=3 python -m torch.distributed.launch tools/train.py configs/cbnet/swin_coco.py --gpus 1 --deterministic --seed 123  --work-dir work_dirs/swin_coco_v3
-# CUDA_VISIBLE_DEVICES=2 python -m torch.distributed.launch --master_port 29501 tools/train.py configs/cbnet/swin_coco.py --gpus 1 --deterministic --seed 123  --work-dir work_dirs/swin_coco_v3
-# CUDA_VISIBLE_DEVICES=2 python tools/test.py configs/cbnet/swin_coco.py work_dirs/swin_coco_v2/epoch_5.pth --out result.json --show --show-dir ckpt --coco
-# CUDA_VISIBLE_DEVICES=2 python tools/test.py configs/cbnet/swin_coco.py work_dirs/swin_coco_v2/epoch_5.pth --eval bbox segm
+work_dir = 'work_dirs/swin_coco_v4'
+gpu_ids = range(0, 1)
